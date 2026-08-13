@@ -7,11 +7,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 
-public class GhastDamageListener implements Listener {
+public class GhastDeathListener implements Listener {
 
     private final LBYangin plugin;
 
-    public GhastDamageListener(LBYangin plugin) {
+    public GhastDeathListener(LBYangin plugin) {
         this.plugin = plugin;
     }
 
