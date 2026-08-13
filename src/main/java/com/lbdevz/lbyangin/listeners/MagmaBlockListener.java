@@ -27,7 +27,6 @@ public class MagmaBlockListener implements Listener {
             Block landBlock = event.getBlock();
             Location landLoc = landBlock.getLocation();
 
-            // Bloğun değişmeden önceki orijinal halini rollback için kaydet
             plugin.getEventManager().trackBlockChange(landBlock);
 
             boolean explosionEnabled = plugin.getConfig().getBoolean("settings.explosion-enabled", true);

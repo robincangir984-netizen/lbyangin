@@ -57,9 +57,6 @@ public class EventManager {
         startShootingTask();
     }
 
-    /**
-     * Ghast'ların belirlenen saniyede bir Magma Bloğu fırlatmasını sağlayan zamanlayıcı
-     */
     private void startShootingTask() {
         if (shootTask != null) {
             shootTask.cancel();
@@ -89,7 +86,6 @@ public class EventManager {
     private void throwMagmaBlockFromGhast(Ghast ghast) {
         Location spawnLoc = ghast.getLocation().add(0, -1, 0);
 
-        // Yakındaki oyuncuyu bul, yoksa rastgele yöne fırlat
         Player target = null;
         double minDistance = 40.0;
         for (Player p : ghast.getWorld().getPlayers()) {
@@ -237,10 +233,28 @@ public class EventManager {
 
         AttributeInstance attr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         double maxHealth = attr != null ? attr.getValue() : ghast.getMaxHealth();
-        double currentHealth = ghast.getHealth();
+        double currentHealth = Math.max(0, ghast.getHealth());
 
-        ghast.setCustomName(ChatColor.translateAlternateColorCodes('&', 
-            "&c&lYangın Ghastı &7[" + (int) currentHealth + "/" + (int) maxHealth + "]"));
+        int totalBars = 10;
+        int filledBars = (int) Math.round((currentHealth / maxHealth) * totalBars);
+        filledBars = Math.max(0, Math.min(totalBars, filledBars));
+        int emptyBars = totalBars - filledBars;
+
+        StringBuilder healthBar = new StringBuilder();
+        healthBar.append("&8[&a&l");
+        
+        for (int i = 0; i < filledBars; i++) {
+            healthBar.append("█");
+        }
+        
+        healthBar.append("&7&l");
+        for (int i = 0; i < emptyBars; i++) {
+            healthBar.append("█");
+        }
+        
+        healthBar.append("&8]");
+
+        ghast.setCustomName(ChatColor.translateAlternateColorCodes('&', healthBar.toString()));
         ghast.setCustomNameVisible(true);
     }
 }

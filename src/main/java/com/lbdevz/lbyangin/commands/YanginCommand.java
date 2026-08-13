@@ -41,7 +41,6 @@ public class YanginCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 
-                // Oyuncu komutu attıysa veya config'de warp tanımlıysa etkinliği başlat
                 if (sender instanceof Player player) {
                     plugin.getEventManager().startEvent(player.getLocation());
                 } else {
