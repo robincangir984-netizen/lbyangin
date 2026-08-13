@@ -4,6 +4,8 @@ import com.lbdevz.lbyangin.LBYangin;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Ghast;
@@ -30,7 +32,10 @@ public class EventManager {
         if (active) return;
         this.active = true;
 
-        int ghastAmount = plugin.getConfig().getInt("settings.ghast-amount", 5);
+        int ghastAmount = plugin.getConfig().getInt("settings.ghast-amount", 4);
+        double ghastHealth = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
+        boolean ghastGlowing = plugin.getConfig().getBoolean("settings.ghast-glowing", true);
+
         for (int i = 0; i < ghastAmount; i++) {
             Location spawnLoc = warpLocation.clone().add(
                     random.nextInt(20) - 10,
@@ -40,16 +45,26 @@ public class EventManager {
             Ghast ghast = (Ghast) warpLocation.getWorld().spawnEntity(spawnLoc, EntityType.GHAST);
             ghast.setCustomName("§c§lEtkinlik Ghast'ı");
             ghast.setCustomNameVisible(true);
+            ghast.setGlowing(ghastGlowing);
+
+            // Can ayarı
+            AttributeInstance healthAttr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+            if (healthAttr != null) {
+                healthAttr.setBaseValue(ghastHealth);
+                ghast.setHealth(ghastHealth);
+            }
+
             eventGhasts.add(ghast);
         }
 
+        int interval = plugin.getConfig().getInt("settings.shoot-interval-seconds", 3);
         shootTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Ghast ghast : eventGhasts) {
+            for (Ghast ghast : new ArrayList<>(eventGhasts)) {
                 if (ghast.isValid() && !ghast.isDead()) {
                     spawnGlowingMagmaBlock(ghast);
                 }
             }
-        }, 60L, 60L);
+        }, 20L * interval, 20L * interval);
     }
 
     private void spawnGlowingMagmaBlock(Ghast ghast) {
@@ -72,6 +87,18 @@ public class EventManager {
         magma.setVelocity(velocity);
     }
 
+    public void handleGhastDeath(Ghast ghast) {
+        if (!active) return;
+
+        eventGhasts.remove(ghast);
+
+        // Tüm Ghast'lar öldü mü?
+        if (eventGhasts.isEmpty()) {
+            stopEvent();
+            Bukkit.broadcastMessage("§e§l[ETKİNLİK] §aTüm Ghast'lar yok edildi! Yangın etkinliği başarıyla tamamlandı.");
+        }
+    }
+
     public void stopEvent() {
         if (!active) return;
         this.active = false;
@@ -82,6 +109,10 @@ public class EventManager {
             if (ghast.isValid()) ghast.remove();
         }
         eventGhasts.clear();
+    }
+
+    public boolean isGhastFromEvent(Ghast ghast) {
+        return eventGhasts.contains(ghast);
     }
 
     public boolean isEventActive() {

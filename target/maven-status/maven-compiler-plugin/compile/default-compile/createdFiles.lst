@@ -1,4 +1,5 @@
-com/lbdevz/lbyangin/LBYangin.class
 com/lbdevz/lbyangin/managers/EventManager.class
+com/lbdevz/lbyangin/LBYangin.class
 com/lbdevz/lbyangin/commands/YanginCommand.class
 com/lbdevz/lbyangin/listeners/MagmaBlockListener.class
+com/lbdevz/lbyangin/listeners/GhastDeathListener.class

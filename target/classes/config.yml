@@ -1,5 +1,7 @@
 settings:
   ghast-amount: 4
+  ghast-health: 100.0
+  ghast-glowing: true
   fire-radius: 2
   shoot-interval-seconds: 3
 
