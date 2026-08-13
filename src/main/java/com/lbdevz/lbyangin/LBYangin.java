@@ -47,7 +47,7 @@ public final class LBYangin extends JavaPlugin {
             "&c | |___|  _ < | |  / ___ \\ |\\  | |_| || || |\\  |",
             "&c |_____|_| \\_\\|_| /_/   \\_\\_| \\_\\|____|___|_| \\_| &7v" + getDescription().getVersion(),
             "",
-            "   &e» Geliştirici: &fxCatyy",
+            "   &e» Geliştirici: &fRob1nss25",
             ""
         };
 
