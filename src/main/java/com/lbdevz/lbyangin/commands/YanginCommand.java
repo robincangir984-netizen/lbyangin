@@ -1,16 +1,17 @@
 package com.lbdevz.lbyangin.commands;
 
 import com.lbdevz.lbyangin.LBYangin;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
-public class YanginCommand implements CommandExecutor {
+import java.util.ArrayList;
+import java.util.List;
+
+public class YanginCommand implements CommandExecutor, TabCompleter {
 
     private final LBYangin plugin;
 
@@ -20,72 +21,67 @@ public class YanginCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!sender.hasPermission("lbyangin.admin")) {
+            sender.sendMessage(ChatColor.RED + "Bu komutu kullanmak için yetkiniz yok.");
+            return true;
+        }
+
         if (args.length == 0) {
-            sender.sendMessage("§cKullanım: /yangin <setwarp|start|stop>");
+            sender.sendMessage(ChatColor.YELLOW + "Kullanım: /yangin <start|stop|reload>");
             return true;
         }
 
-        if (args[0].equalsIgnoreCase("setwarp")) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("§cBu komut sadece oyundan kullanılabilir.");
-                return true;
-            }
+        String subCommand = args[0].toLowerCase();
 
-            Location loc = player.getLocation();
-            FileConfiguration config = plugin.getConfig();
-            
-            config.set("warp-location.world", loc.getWorld().getName());
-            config.set("warp-location.x", loc.getX());
-            config.set("warp-location.y", loc.getY());
-            config.set("warp-location.z", loc.getZ());
-            config.set("warp-location.yaw", loc.getYaw());
-            config.set("warp-location.pitch", loc.getPitch());
-            plugin.saveConfig();
+        switch (subCommand) {
+            case "start":
+                if (plugin.getEventManager().isEventActive()) {
+                    sender.sendMessage(ChatColor.RED + "Etkinlik zaten aktif!");
+                    return true;
+                }
+                if (sender instanceof Player player) {
+                    plugin.getEventManager().startEvent(player.getLocation());
+                } else {
+                    plugin.getEventManager().startEvent();
+                }
+                sender.sendMessage(ChatColor.GREEN + "Yangın etkinliği başlatıldı!");
+                break;
 
-            player.sendMessage("§a[LBYangin] Etkinlik merkezi başarıyla ayarlandı!");
-            return true;
+            case "stop":
+                if (!plugin.getEventManager().isEventActive()) {
+                    sender.sendMessage(ChatColor.RED + "Aktif bir etkinlik yok.");
+                    return true;
+                }
+                plugin.getEventManager().stopEvent();
+                sender.sendMessage(ChatColor.YELLOW + "Yangın etkinliği durduruldu.");
+                break;
+
+            case "reload":
+                plugin.reloadConfig();
+                String prefix = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ");
+                String reloadedMsg = plugin.getConfig().getString("messages.config-reloaded", "Konfigürasyon yüklendi.");
+                sender.sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + reloadedMsg));
+                break;
+
+            default:
+                sender.sendMessage(ChatColor.YELLOW + "Kullanım: /yangin <start|stop|reload>");
+                break;
         }
 
-        if (args[0].equalsIgnoreCase("start")) {
-            if (plugin.getEventManager().isEventActive()) {
-                sender.sendMessage("§cEtkinlik zaten aktif!");
-                return true;
-            }
-
-            FileConfiguration config = plugin.getConfig();
-            String worldName = config.getString("warp-location.world");
-            
-            if (worldName == null) {
-                sender.sendMessage("§cEtkinlik konumu ayarlanmamış! Önce /yangin setwarp kullanın.");
-                return true;
-            }
-
-            World world = Bukkit.getWorld(worldName);
-            double x = config.getDouble("warp-location.x");
-            double y = config.getDouble("warp-location.y");
-            double z = config.getDouble("warp-location.z");
-            float yaw = (float) config.getDouble("warp-location.yaw");
-            float pitch = (float) config.getDouble("warp-location.pitch");
-
-            Location warpLoc = new Location(world, x, y, z, yaw, pitch);
-            
-            plugin.getEventManager().startEvent(warpLoc);
-            Bukkit.broadcastMessage("§e§l[ETKİNLİK] §c/warp yangin §ebölgesinde yangın etkinliği başladı!");
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("stop")) {
-            if (!plugin.getEventManager().isEventActive()) {
-                sender.sendMessage("§cAktif bir etkinlik yok!");
-                return true;
-            }
-
-            plugin.getEventManager().stopEvent();
-            Bukkit.broadcastMessage("§e§l[ETKİNLİK] §aYangın etkinliği sona erdi.");
-            return true;
-        }
-
-        sender.sendMessage("§cBilinmeyen alt komut.");
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+        if (args.length == 1) {
+            List<String> subCommands = List.of("start", "stop", "reload");
+            for (String sub : subCommands) {
+                if (sub.startsWith(args[0].toLowerCase())) {
+                    completions.add(sub);
+                }
+            }
+        }
+        return completions;
     }
 }

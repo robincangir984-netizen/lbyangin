@@ -1,11 +1,10 @@
 package com.lbdevz.lbyangin.listeners;
 
 import com.lbdevz.lbyangin.LBYangin;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Ghast;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 
 public class GhastDeathListener implements Listener {
 
@@ -16,15 +15,10 @@ public class GhastDeathListener implements Listener {
     }
 
     @EventHandler
-    public void onGhastDamage(EntityDamageEvent event) {
+    public void onGhastDeath(EntityDeathEvent event) {
         if (event.getEntity() instanceof Ghast ghast) {
             if (plugin.getEventManager().isGhastFromEvent(ghast)) {
-                // Hasar hesaplandıktan hemen sonra ismi güncelle
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (ghast.isValid() && !ghast.isDead()) {
-                        plugin.getEventManager().updateGhastNameTag(ghast);
-                    }
-                });
+                plugin.getEventManager().handleGhastDeath(ghast);
             }
         }
     }

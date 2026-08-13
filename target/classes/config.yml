@@ -9,6 +9,15 @@ settings:
   bossbar-title: "&c&lYANGIN ETKİNLİĞİ &7- &eGhast Canı"
   bossbar-color: "RED" # RED, PINK, PURPLE, WHITE, UNKNOWN, GREEN, BLUE
 
+rewards:
+  # Etkinlik bittiğinde tüm oyunculara çalıştırılacak komut (%player% dinamiktir)
+  command: "crate givekey %player% yangin 1"
+
+messages:
+  prefix: "&a[LB-Yangin] "
+  event-end: "&fTüm Ghast'lar temizlendi! Etkinlik başarıyla tamamlandı, ödüller dağıtıldı!"
+  config-reloaded: "&aKonfigürasyon başarıyla yeniden yüklendi."
+
 warp-location:
   world: "world"
   x: 0.5

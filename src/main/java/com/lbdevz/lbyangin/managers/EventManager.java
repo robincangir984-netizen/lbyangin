@@ -2,159 +2,145 @@ package com.lbdevz.lbyangin.managers;
 
 import com.lbdevz.lbyangin.LBYangin;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.FallingBlock;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.Ghast;
-import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.Vector;
+import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public class EventManager {
 
     private final LBYangin plugin;
-    private boolean active = false;
-    private final List<Ghast> eventGhasts = new ArrayList<>();
-    private final Map<Location, BlockData> originalBlocks = new HashMap<>();
-    private BukkitTask shootTask;
-    private final Random random = new Random();
+    private final Set<UUID> activeGhasts = new HashSet<>();
+    private final Map<Block, BlockState> changedBlocks = new HashMap<>();
+    private boolean eventActive = false;
 
     public EventManager(LBYangin plugin) {
         this.plugin = plugin;
     }
 
-    public void startEvent(Location warpLocation) {
-        if (active) return;
-        this.active = true;
-        originalBlocks.clear();
-        eventGhasts.clear();
-
-        int ghastAmount = plugin.getConfig().getInt("settings.ghast-amount", 4);
-        double ghastHealth = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
-        boolean ghastGlowing = plugin.getConfig().getBoolean("settings.ghast-glowing", true);
-
-        for (int i = 0; i < ghastAmount; i++) {
-            Location spawnLoc = warpLocation.clone().add(
-                    random.nextInt(20) - 10,
-                    10 + random.nextInt(5),
-                    random.nextInt(20) - 10
-            );
-            Ghast ghast = (Ghast) warpLocation.getWorld().spawnEntity(spawnLoc, EntityType.GHAST);
-            ghast.setGlowing(ghastGlowing);
-
-            AttributeInstance healthAttr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
-            if (healthAttr != null) {
-                healthAttr.setBaseValue(ghastHealth);
-                ghast.setHealth(ghastHealth);
-            }
-
-            updateGhastNameTag(ghast);
-            eventGhasts.add(ghast);
-        }
-
-        int interval = plugin.getConfig().getInt("settings.shoot-interval-seconds", 3);
-        shootTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (Ghast ghast : new ArrayList<>(eventGhasts)) {
-                if (ghast.isValid() && !ghast.isDead()) {
-                    spawnGlowingMagmaBlock(ghast);
-                }
-            }
-        }, 20L * interval, 20L * interval);
+    public boolean isEventActive() {
+        return eventActive;
     }
 
-    // Ghast'ın kafasının üstündeki Can Barını Güncelleme Mantığı
-    public void updateGhastNameTag(Ghast ghast) {
-        AttributeInstance healthAttr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
-        double maxHealth = (healthAttr != null) ? healthAttr.getBaseValue() : 100.0;
-        double currentHealth = Math.max(0, ghast.getHealth());
-
-        int totalBars = 10;
-        int greenBars = (int) Math.round((currentHealth / maxHealth) * totalBars);
-        int redBars = totalBars - greenBars;
-
-        StringBuilder bar = new StringBuilder("§a");
-        for (int i = 0; i < greenBars; i++) bar.append("█");
-        bar.append("§c");
-        for (int i = 0; i < redBars; i++) bar.append("█");
-
-        String nameTag = "§c§lEtkinlik Ghast'ı §7[" + bar + "§7] §e" + (int) currentHealth + "§f/§e" + (int) maxHealth;
-        ghast.setCustomName(nameTag);
-        ghast.setCustomNameVisible(true);
+    // Hem parametresiz hem de Location alan startEvent aşırı yüklemeleri (overload)
+    public void startEvent() {
+        this.startEvent(null);
     }
 
-    private void spawnGlowingMagmaBlock(Ghast ghast) {
-        Location origin = ghast.getLocation();
-        
-        FallingBlock magma = origin.getWorld().spawnFallingBlock(
-                origin, 
-                Material.MAGMA_BLOCK.createBlockData()
-        );
-
-        magma.setGlowing(true);
-        magma.setDropItem(false);
-        magma.setHurtEntities(true);
-
-        Vector velocity = new Vector(
-                (random.nextDouble() - 0.5) * 0.8,
-                -0.2,
-                (random.nextDouble() - 0.5) * 0.8
-        );
-        magma.setVelocity(velocity);
+    public void startEvent(Location spawnLocation) {
+        this.eventActive = true;
+        this.activeGhasts.clear();
+        this.changedBlocks.clear();
     }
 
     public void trackBlockChange(Block block) {
-        if (!active) return;
-        Location loc = block.getLocation();
-        if (!originalBlocks.containsKey(loc)) {
-            originalBlocks.put(loc, block.getBlockData().clone());
+        if (!changedBlocks.containsKey(block)) {
+            changedBlocks.put(block, block.getState());
         }
     }
 
-    public void handleGhastDeath(Ghast ghast) {
-        if (!active) return;
+    public void registerGhast(Ghast ghast) {
+        if (ghast == null) return;
 
-        eventGhasts.remove(ghast);
+        activeGhasts.add(ghast.getUniqueId());
 
-        if (eventGhasts.isEmpty()) {
-            stopEvent();
-            Bukkit.broadcastMessage("§e§l[ETKİNLİK] §aTüm Ghast'lar yok edildi! Yangın etkinliği tamamlandı, harita temizlendi.");
+        // Config'den can ayarını çek (settings.ghast-health)
+        double maxHealth = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
+        AttributeInstance healthAttr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        if (healthAttr != null) {
+            healthAttr.setBaseValue(maxHealth);
+            ghast.setHealth(maxHealth);
         }
-    }
 
-    public void stopEvent() {
-        if (!active) return;
-        this.active = false;
+        // Config'den glowing ayarını çek (settings.ghast-glowing)
+        boolean glowing = plugin.getConfig().getBoolean("settings.ghast-glowing", true);
+        ghast.setGlowing(glowing);
 
-        if (shootTask != null) shootTask.cancel();
-
-        for (Ghast ghast : eventGhasts) {
-            if (ghast.isValid()) ghast.remove();
-        }
-        eventGhasts.clear();
-
-        restoreTerrain();
-    }
-
-    private void restoreTerrain() {
-        for (Map.Entry<Location, BlockData> entry : originalBlocks.entrySet()) {
-            Location loc = entry.getKey();
-            BlockData originalData = entry.getValue();
-            loc.getBlock().setBlockData(originalData, false);
-        }
-        originalBlocks.clear();
+        updateGhastNameTag(ghast);
     }
 
     public boolean isGhastFromEvent(Ghast ghast) {
-        return eventGhasts.contains(ghast);
+        return ghast != null && activeGhasts.contains(ghast.getUniqueId());
     }
 
-    public boolean isEventActive() {
-        return active;
+    // GhastDeathListener'ın çağırdığı eksik metod
+    public void handleGhastDeath(Ghast ghast) {
+        if (ghast != null) {
+            activeGhasts.remove(ghast.getUniqueId());
+            checkEventCompletion();
+        }
+    }
+
+    public void removeGhast(Ghast ghast) {
+        handleGhastDeath(ghast);
+    }
+
+    private void checkEventCompletion() {
+        if (!eventActive) return;
+
+        activeGhasts.removeIf(uuid -> Bukkit.getEntity(uuid) == null || Bukkit.getEntity(uuid).isDead());
+
+        if (activeGhasts.isEmpty()) {
+            finishEventWithRewards();
+        }
+    }
+
+    private void finishEventWithRewards() {
+        this.eventActive = false;
+
+        String prefix = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ");
+        String endMsg = plugin.getConfig().getString("messages.event-end", "Etkinlik bitti!");
+        Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', prefix + endMsg));
+
+        // Ödül dağıtımı (Bütün oyunculara config komutu çalıştırma)
+        String rewardCmd = plugin.getConfig().getString("rewards.command", "");
+        if (rewardCmd != null && !rewardCmd.isEmpty()) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                String cmdToExecute = rewardCmd.replace("%player%", player.getName());
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmdToExecute);
+            }
+        }
+
+        restoreBlocks();
+    }
+
+    public void stopEvent() {
+        this.eventActive = false;
+        for (UUID uuid : activeGhasts) {
+            if (Bukkit.getEntity(uuid) != null) {
+                Bukkit.getEntity(uuid).remove();
+            }
+        }
+        this.activeGhasts.clear();
+        restoreBlocks();
+    }
+
+    private void restoreBlocks() {
+        for (Map.Entry<Block, BlockState> entry : changedBlocks.entrySet()) {
+            entry.getValue().update(true, false);
+        }
+        changedBlocks.clear();
+    }
+
+    public void updateGhastNameTag(Ghast ghast) {
+        if (ghast == null || !ghast.isValid()) return;
+
+        AttributeInstance attr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
+        double maxHealth = attr != null ? attr.getValue() : ghast.getMaxHealth();
+        double currentHealth = ghast.getHealth();
+
+        ghast.setCustomName(ChatColor.translateAlternateColorCodes('&', 
+            "&c&lYangın Ghastı &7[" + (int) currentHealth + "/" + (int) maxHealth + "]"));
+        ghast.setCustomNameVisible(true);
     }
 }
