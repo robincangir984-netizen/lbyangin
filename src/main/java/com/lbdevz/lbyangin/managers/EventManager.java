@@ -1,6 +1,7 @@
 package com.lbdevz.lbyangin.managers;
 
 import com.lbdevz.lbyangin.LBYangin;
+import com.lbdevz.lbyangin.utils.DiscordWebhook;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -55,6 +56,7 @@ public class EventManager {
         }
 
         startShootingTask();
+        sendDiscordNotification(true);
     }
 
     private void startShootingTask() {
@@ -171,10 +173,6 @@ public class EventManager {
         }
     }
 
-    public void removeGhast(Ghast ghast) {
-        handleGhastDeath(ghast);
-    }
-
     private void checkEventCompletion() {
         if (!eventActive) return;
 
@@ -204,6 +202,7 @@ public class EventManager {
         }
 
         restoreBlocks();
+        sendDiscordNotification(false);
     }
 
     public void stopEvent() {
@@ -219,6 +218,27 @@ public class EventManager {
         }
         this.activeGhasts.clear();
         restoreBlocks();
+        sendDiscordNotification(false);
+    }
+
+    private void sendDiscordNotification(boolean isStart) {
+        boolean enabled = plugin.getConfig().getBoolean("discord.enabled", false);
+        if (!enabled) return;
+
+        String webhookUrl = plugin.getConfig().getString("discord.webhook-url", "");
+        DiscordWebhook webhook = new DiscordWebhook(webhookUrl);
+
+        if (isStart) {
+            String title = plugin.getConfig().getString("discord.start-title", "🔥 Yangın Etkinliği Başladı!");
+            String desc = plugin.getConfig().getString("discord.start-description", "Alev Ghast'ları sunucuya saldırdı! Oyuna girip haritayı temizleyin.");
+            int color = 16724736;
+            webhook.sendEmbed(title, desc, color);
+        } else {
+            String title = plugin.getConfig().getString("discord.end-title", "✅ Yangın Etkinliği Sona Erdi!");
+            String desc = plugin.getConfig().getString("discord.end-description", "Tüm Ghast'lar yok edildi. Katılan oyunculara teşekkürler!");
+            int color = 65280;
+            webhook.sendEmbed(title, desc, color);
+        }
     }
 
     private void restoreBlocks() {
