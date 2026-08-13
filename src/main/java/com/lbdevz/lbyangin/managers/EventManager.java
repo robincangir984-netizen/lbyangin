@@ -9,9 +9,13 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Ghast;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -24,9 +28,9 @@ public class EventManager {
     private final LBYangin plugin;
     private boolean eventActive = false;
     private final List<Ghast> activeGhasts = new ArrayList<>();
-    // Etkinliğe katılan (hasar veren) oyuncuları tutan liste
     private final Set<Player> participants = new HashSet<>();
     private final Random random = new Random();
+    private BukkitTask shootTask;
 
     public EventManager(LBYangin plugin) {
         this.plugin = plugin;
@@ -49,7 +53,7 @@ public class EventManager {
 
         eventActive = true;
         activeGhasts.clear();
-        participants.clear(); // Katılımcı listesini sıfırla
+        participants.clear();
 
         int amount = plugin.getConfig().getInt("settings.ghast-amount", 4);
         double health = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
@@ -69,6 +73,9 @@ public class EventManager {
             activeGhasts.add(ghast);
         }
 
+        // ETKİNLİK BAŞLADIĞI AN RASTGELE MAGMA BLOĞU FIRLATMA GÖREVİNİ BAŞLAT (Her 1.5 saniyede bir fırlatır)
+        startRandomShootingTask();
+
         String startMsg = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ") + "&eYangın etkinliği başladı!";
         Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', startMsg));
 
@@ -77,10 +84,50 @@ public class EventManager {
         }
     }
 
+    private void startRandomShootingTask() {
+        if (shootTask != null) {
+            shootTask.cancel();
+        }
+
+        shootTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!eventActive || activeGhasts.isEmpty()) {
+                    cancel();
+                    return;
+                }
+
+                for (Ghast ghast : activeGhasts) {
+                    if (ghast != null && !ghast.isDead()) {
+                        // Rastgele Açı ve Hız Vektörü (3D Rastgele Yön)
+                        double vx = (random.nextDouble() - 0.5) * 1.5;
+                        double vy = random.nextDouble() * 0.8 + 0.2; // Yukarı/İleri kavisli atış
+                        double vz = (random.nextDouble() - 0.5) * 1.5;
+                        Vector velocity = new Vector(vx, vy, vz);
+
+                        // Glowing Magma Bloğu Oluştur
+                        FallingBlock magmaBlock = ghast.getWorld().spawnFallingBlock(
+                                ghast.getLocation().add(0, -0.5, 0),
+                                Material.MAGMA_BLOCK.createBlockData()
+                        );
+
+                        magmaBlock.setGlowing(true);
+                        magmaBlock.setVelocity(velocity);
+                        magmaBlock.setDropItem(false);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 30L); // Etkinlik başlar başlamaz 1. sn sonra başlar, her 1.5 saniyede (30 tick) tekrarlar
+    }
+
     public void stopEvent() {
         if (!eventActive) return;
 
-        // Kalan Ghast'ları temizle
+        if (shootTask != null) {
+            shootTask.cancel();
+            shootTask = null;
+        }
+
         for (Ghast ghast : new ArrayList<>(activeGhasts)) {
             if (ghast != null && !ghast.isDead()) {
                 ghast.remove();
@@ -88,7 +135,6 @@ public class EventManager {
         }
         activeGhasts.clear();
 
-        // ETKİNLİĞE KATILAN HERKESE ÖDÜL VER
         giveRewardsToAll();
 
         eventActive = false;
@@ -111,7 +157,6 @@ public class EventManager {
         participants.clear();
     }
 
-    // Ghast'a vurulduğunda vurana kaydeder
     public void addParticipant(Player player) {
         if (eventActive && player != null) {
             participants.add(player);
@@ -125,12 +170,10 @@ public class EventManager {
     public void handleGhastDeath(Ghast ghast) {
         activeGhasts.remove(ghast);
 
-        // Son vuran oyuncuyu da katılımcılara ekle
         if (ghast.getKiller() != null) {
             addParticipant(ghast.getKiller());
         }
 
-        // Tüm Ghast'lar öldüyse etkinliği bitir (Bitişte herkese ödül dağıtılacak)
         if (activeGhasts.isEmpty() && eventActive) {
             stopEvent();
         }
@@ -143,18 +186,16 @@ public class EventManager {
         double maxHealth = ghast.getMaxHealth();
         double healthPercent = currentHealth / maxHealth;
 
-        // Can barı uzunluğu (15 blokluk geniş gösterge)
         int totalBars = 15;
         int filledBars = (int) Math.round(healthPercent * totalBars);
 
-        // Orana göre renk geçişi
         String healthColor;
         if (healthPercent > 0.5) {
-            healthColor = "&a"; // %50 üzeri Yeşil
+            healthColor = "&a";
         } else if (healthPercent > 0.25) {
-            healthColor = "&e"; // %25 - %50 arası Sarı
+            healthColor = "&e";
         } else {
-            healthColor = "&c"; // %25 altı Kırmızı
+            healthColor = "&c";
         }
 
         StringBuilder barBuilder = new StringBuilder();
@@ -166,7 +207,6 @@ public class EventManager {
             }
         }
 
-        // Tag Yapısı: Alev Ghast'ı | [██████████░░░░░] (80/100)
         String tag = "&c&lAlev Ghast'ı &8| " + healthColor + barBuilder.toString() + " &f(" + (int) currentHealth + "/" + (int) maxHealth + ")";
 
         ghast.setCustomName(ChatColor.translateAlternateColorCodes('&', tag));
@@ -174,7 +214,6 @@ public class EventManager {
     }
 
     public void trackBlockChange(Block block) {
-        // Blok takip mantığı
     }
 
     public Location getWarpLocation() {
