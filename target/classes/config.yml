@@ -1,0 +1,12 @@
+settings:
+  ghast-amount: 4
+  fire-radius: 2
+  shoot-interval-seconds: 3
+
+warp-location:
+  world: "world"
+  x: 0.5
+  y: 64.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0
