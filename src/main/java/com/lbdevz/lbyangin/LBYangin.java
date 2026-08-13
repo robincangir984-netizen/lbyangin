@@ -5,6 +5,7 @@ import com.lbdevz.lbyangin.listeners.GhastDamageListener;
 import com.lbdevz.lbyangin.listeners.GhastDeathListener;
 import com.lbdevz.lbyangin.listeners.GhastShootListener;
 import com.lbdevz.lbyangin.listeners.MagmaBlockListener;
+import com.lbdevz.lbyangin.managers.AutoSchedulerManager;
 import com.lbdevz.lbyangin.managers.EventManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -13,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class LBYangin extends JavaPlugin {
 
     private EventManager eventManager;
+    private AutoSchedulerManager autoSchedulerManager;
 
     @Override
     public void onEnable() {
@@ -21,6 +23,8 @@ public final class LBYangin extends JavaPlugin {
         sendBanner();
 
         this.eventManager = new EventManager(this);
+        this.autoSchedulerManager = new AutoSchedulerManager(this);
+        this.autoSchedulerManager.startScheduler();
 
         YanginCommand yanginCmd = new YanginCommand(this);
         if (getCommand("yangin") != null) {
@@ -37,11 +41,11 @@ public final class LBYangin extends JavaPlugin {
 
     private void sendBanner() {
         String[] lines = new String[]{
-            "&c         ____",
-            "&c    ____| __ )  ___  ___ ___",
-            "&c   / ___|  _ \\ / _ \\/ __/ __|",
-            "&c  | |___| |_) | (_) \\__ \\__ \\",
-            "&c   \\____|____/ \\___/|___/___/ &7v" + getDescription().getVersion(),
+            "&c  _     ______   __   _   _  ____ ___ _   _",
+            "&c | |   |  _ \\ \\ / /  / \\ | \\ | |/ ___|_ _| \\ | |",
+            "&c | |   | |_) \\ V /  / _ \\|  \\| | |  _ | ||  \\| |",
+            "&c | |___|  _ < | |  / ___ \\ |\\  | |_| || || |\\  |",
+            "&c |_____|_| \\_\\|_| /_/   \\_\\_| \\_\\|____|___|_| \\_| &7v" + getDescription().getVersion(),
             "",
             "   &e» Geliştirici: &fxCatyy",
             ""
@@ -54,6 +58,9 @@ public final class LBYangin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (autoSchedulerManager != null) {
+            autoSchedulerManager.stopScheduler();
+        }
         if (eventManager != null && eventManager.isEventActive()) {
             eventManager.stopEvent();
         }
@@ -61,5 +68,9 @@ public final class LBYangin extends JavaPlugin {
 
     public EventManager getEventManager() {
         return eventManager;
+    }
+
+    public AutoSchedulerManager getAutoSchedulerManager() {
+        return autoSchedulerManager;
     }
 }
