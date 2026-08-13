@@ -4,6 +4,8 @@ import com.lbdevz.lbyangin.LBYangin;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.EntityType;
@@ -12,15 +14,14 @@ import org.bukkit.entity.Ghast;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class EventManager {
 
     private final LBYangin plugin;
     private boolean active = false;
     private final List<Ghast> eventGhasts = new ArrayList<>();
+    private final Map<Location, BlockData> originalBlocks = new HashMap<>();
     private BukkitTask shootTask;
     private final Random random = new Random();
 
@@ -31,6 +32,7 @@ public class EventManager {
     public void startEvent(Location warpLocation) {
         if (active) return;
         this.active = true;
+        originalBlocks.clear();
 
         int ghastAmount = plugin.getConfig().getInt("settings.ghast-amount", 4);
         double ghastHealth = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
@@ -47,7 +49,6 @@ public class EventManager {
             ghast.setCustomNameVisible(true);
             ghast.setGlowing(ghastGlowing);
 
-            // Can ayarı
             AttributeInstance healthAttr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
             if (healthAttr != null) {
                 healthAttr.setBaseValue(ghastHealth);
@@ -87,15 +88,23 @@ public class EventManager {
         magma.setVelocity(velocity);
     }
 
+    // Blok değişmeden veya patlamadan önceki orijinal durumunu kaydeder
+    public void trackBlockChange(Block block) {
+        if (!active) return;
+        Location loc = block.getLocation();
+        if (!originalBlocks.containsKey(loc)) {
+            originalBlocks.put(loc, block.getBlockData().clone());
+        }
+    }
+
     public void handleGhastDeath(Ghast ghast) {
         if (!active) return;
 
         eventGhasts.remove(ghast);
 
-        // Tüm Ghast'lar öldü mü?
         if (eventGhasts.isEmpty()) {
             stopEvent();
-            Bukkit.broadcastMessage("§e§l[ETKİNLİK] §aTüm Ghast'lar yok edildi! Yangın etkinliği başarıyla tamamlandı.");
+            Bukkit.broadcastMessage("§e§l[ETKİNLİK] §aTüm Ghast'lar öldürüldü! Yangın etkinliği bitti, harita eski haline getirildi.");
         }
     }
 
@@ -109,6 +118,18 @@ public class EventManager {
             if (ghast.isValid()) ghast.remove();
         }
         eventGhasts.clear();
+
+        // Haritayı eski orijinal haline çevirir
+        restoreTerrain();
+    }
+
+    private void restoreTerrain() {
+        for (Map.Entry<Location, BlockData> entry : originalBlocks.entrySet()) {
+            Location loc = entry.getKey();
+            BlockData originalData = entry.getValue();
+            loc.getBlock().setBlockData(originalData, false);
+        }
+        originalBlocks.clear();
     }
 
     public boolean isGhastFromEvent(Ghast ghast) {

@@ -4,6 +4,8 @@ settings:
   ghast-glowing: true
   fire-radius: 2
   shoot-interval-seconds: 3
+  explosion-enabled: true
+  explosion-power: 3.0
 
 warp-location:
   world: "world"
