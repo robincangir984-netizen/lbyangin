@@ -1,5 +1,5 @@
 name: LBYangin
-version: '1.0-SNAPSHOT'
+version: '1.0'
 main: com.lbdevz.lbyangin.LBYangin
 api-version: '1.21'
 author: xCatyy
