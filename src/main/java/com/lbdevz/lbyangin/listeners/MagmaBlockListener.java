@@ -1,7 +1,6 @@
 package com.lbdevz.lbyangin.listeners;
 
 import com.lbdevz.lbyangin.LBYangin;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -25,10 +24,11 @@ public class MagmaBlockListener implements Listener {
         if (!plugin.getEventManager().isEventActive()) return;
 
         if (event.getEntityType() == EntityType.FALLING_BLOCK && event.getTo() == Material.MAGMA_BLOCK) {
-            Location landLoc = event.getBlock().getLocation();
+            Block landBlock = event.getBlock();
+            Location landLoc = landBlock.getLocation();
 
-            // Düşülen bloğun orijinal halini kaydet
-            plugin.getEventManager().trackBlockChange(event.getBlock());
+            // Bloğun değişmeden önceki orijinal halini rollback için kaydet
+            plugin.getEventManager().trackBlockChange(landBlock);
 
             boolean explosionEnabled = plugin.getConfig().getBoolean("settings.explosion-enabled", true);
             float explosionPower = (float) plugin.getConfig().getDouble("settings.explosion-power", 3.0);
@@ -37,7 +37,7 @@ public class MagmaBlockListener implements Listener {
                 landLoc.getWorld().createExplosion(landLoc, explosionPower, true, true);
             }
 
-            int radius = plugin.getConfig().getInt("settings.fire-radius", 1);
+            int radius = plugin.getConfig().getInt("settings.fire-radius", 2);
             for (int x = -radius; x <= radius; x++) {
                 for (int z = -radius; z <= radius; z++) {
                     for (int y = -1; y <= 1; y++) {
@@ -49,14 +49,6 @@ public class MagmaBlockListener implements Listener {
                     }
                 }
             }
-
-            // Magma bloğunun yere yapışıp kalmaması için hava olarak değiştirilmesi
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                Block b = landLoc.getBlock();
-                if (b.getType() == Material.MAGMA_BLOCK) {
-                    b.setType(Material.AIR);
-                }
-            });
         }
     }
 

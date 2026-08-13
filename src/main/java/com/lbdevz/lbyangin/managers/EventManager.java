@@ -4,13 +4,19 @@ import com.lbdevz.lbyangin.LBYangin;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Ghast;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,6 +30,7 @@ public class EventManager {
     private final Set<UUID> activeGhasts = new HashSet<>();
     private final Map<Block, BlockState> changedBlocks = new HashMap<>();
     private boolean eventActive = false;
+    private BukkitTask shootTask;
 
     public EventManager(LBYangin plugin) {
         this.plugin = plugin;
@@ -46,6 +53,69 @@ public class EventManager {
         if (loc != null && loc.getWorld() != null) {
             spawnGhastsAtLocation(loc);
         }
+
+        startShootingTask();
+    }
+
+    /**
+     * Ghast'ların belirlenen saniyede bir Magma Bloğu fırlatmasını sağlayan zamanlayıcı
+     */
+    private void startShootingTask() {
+        if (shootTask != null) {
+            shootTask.cancel();
+        }
+
+        int intervalSeconds = plugin.getConfig().getInt("settings.shoot-interval-seconds", 3);
+        long ticks = Math.max(1, intervalSeconds) * 20L;
+
+        shootTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!eventActive || activeGhasts.isEmpty()) {
+                    cancel();
+                    return;
+                }
+
+                for (UUID uuid : new HashSet<>(activeGhasts)) {
+                    Entity entity = Bukkit.getEntity(uuid);
+                    if (entity instanceof Ghast ghast && ghast.isValid() && !ghast.isDead()) {
+                        throwMagmaBlockFromGhast(ghast);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 20L, ticks);
+    }
+
+    private void throwMagmaBlockFromGhast(Ghast ghast) {
+        Location spawnLoc = ghast.getLocation().add(0, -1, 0);
+
+        // Yakındaki oyuncuyu bul, yoksa rastgele yöne fırlat
+        Player target = null;
+        double minDistance = 40.0;
+        for (Player p : ghast.getWorld().getPlayers()) {
+            double dist = p.getLocation().distance(spawnLoc);
+            if (dist < minDistance) {
+                minDistance = dist;
+                target = p;
+            }
+        }
+
+        Vector velocity;
+        if (target != null) {
+            Location targetLoc = target.getLocation();
+            Vector direction = targetLoc.toVector().subtract(spawnLoc.toVector());
+            double distance = targetLoc.distance(spawnLoc);
+            velocity = direction.normalize().multiply(1.1).setY(Math.min(0.4, distance * 0.025));
+        } else {
+            double vx = (Math.random() - 0.5) * 0.8;
+            double vz = (Math.random() - 0.5) * 0.8;
+            velocity = new Vector(vx, 0.2, vz);
+        }
+
+        FallingBlock magmaBlock = ghast.getWorld().spawnFallingBlock(spawnLoc, Material.MAGMA_BLOCK.createBlockData());
+        magmaBlock.setDropItem(false);
+        magmaBlock.setHurtEntities(true);
+        magmaBlock.setVelocity(velocity);
     }
 
     public Location getWarpLocationFromConfig() {
@@ -121,6 +191,9 @@ public class EventManager {
 
     private void finishEventWithRewards() {
         this.eventActive = false;
+        if (shootTask != null) {
+            shootTask.cancel();
+        }
 
         String prefix = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ");
         String endMsg = plugin.getConfig().getString("messages.event-end", "Etkinlik bitti!");
@@ -139,6 +212,10 @@ public class EventManager {
 
     public void stopEvent() {
         this.eventActive = false;
+        if (shootTask != null) {
+            shootTask.cancel();
+        }
+
         for (UUID uuid : activeGhasts) {
             if (Bukkit.getEntity(uuid) != null) {
                 Bukkit.getEntity(uuid).remove();
