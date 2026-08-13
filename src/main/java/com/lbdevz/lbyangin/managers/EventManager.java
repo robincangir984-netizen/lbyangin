@@ -4,6 +4,7 @@ import com.lbdevz.lbyangin.LBYangin;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
@@ -32,15 +33,41 @@ public class EventManager {
         return eventActive;
     }
 
-    // Hem parametresiz hem de Location alan startEvent aşırı yüklemeleri (overload)
     public void startEvent() {
-        this.startEvent(null);
+        startEvent(getWarpLocationFromConfig());
     }
 
     public void startEvent(Location spawnLocation) {
         this.eventActive = true;
         this.activeGhasts.clear();
         this.changedBlocks.clear();
+
+        Location loc = spawnLocation != null ? spawnLocation : getWarpLocationFromConfig();
+        if (loc != null && loc.getWorld() != null) {
+            spawnGhastsAtLocation(loc);
+        }
+    }
+
+    public Location getWarpLocationFromConfig() {
+        String worldName = plugin.getConfig().getString("warp-location.world", "world");
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) return null;
+
+        double x = plugin.getConfig().getDouble("warp-location.x", 0.5);
+        double y = plugin.getConfig().getDouble("warp-location.y", 64.0);
+        double z = plugin.getConfig().getDouble("warp-location.z", 0.5);
+        float yaw = (float) plugin.getConfig().getDouble("warp-location.yaw", 0.0);
+        float pitch = (float) plugin.getConfig().getDouble("warp-location.pitch", 0.0);
+
+        return new Location(world, x, y, z, yaw, pitch);
+    }
+
+    private void spawnGhastsAtLocation(Location loc) {
+        int amount = plugin.getConfig().getInt("settings.ghast-amount", 4);
+        for (int i = 0; i < amount; i++) {
+            Ghast ghast = loc.getWorld().spawn(loc, Ghast.class);
+            registerGhast(ghast);
+        }
     }
 
     public void trackBlockChange(Block block) {
@@ -54,7 +81,6 @@ public class EventManager {
 
         activeGhasts.add(ghast.getUniqueId());
 
-        // Config'den can ayarını çek (settings.ghast-health)
         double maxHealth = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
         AttributeInstance healthAttr = ghast.getAttribute(Attribute.GENERIC_MAX_HEALTH);
         if (healthAttr != null) {
@@ -62,7 +88,6 @@ public class EventManager {
             ghast.setHealth(maxHealth);
         }
 
-        // Config'den glowing ayarını çek (settings.ghast-glowing)
         boolean glowing = plugin.getConfig().getBoolean("settings.ghast-glowing", true);
         ghast.setGlowing(glowing);
 
@@ -73,7 +98,6 @@ public class EventManager {
         return ghast != null && activeGhasts.contains(ghast.getUniqueId());
     }
 
-    // GhastDeathListener'ın çağırdığı eksik metod
     public void handleGhastDeath(Ghast ghast) {
         if (ghast != null) {
             activeGhasts.remove(ghast.getUniqueId());
@@ -102,7 +126,6 @@ public class EventManager {
         String endMsg = plugin.getConfig().getString("messages.event-end", "Etkinlik bitti!");
         Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', prefix + endMsg));
 
-        // Ödül dağıtımı (Bütün oyunculara config komutu çalıştırma)
         String rewardCmd = plugin.getConfig().getString("rewards.command", "");
         if (rewardCmd != null && !rewardCmd.isEmpty()) {
             for (Player player : Bukkit.getOnlinePlayers()) {
