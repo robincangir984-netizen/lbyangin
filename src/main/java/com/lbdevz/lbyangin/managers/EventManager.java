@@ -5,36 +5,40 @@ import com.lbdevz.lbyangin.utils.DiscordWebhook;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Ghast;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 public class EventManager {
 
     private final LBYangin plugin;
     private boolean eventActive = false;
     private final List<Ghast> activeGhasts = new ArrayList<>();
+    // Etkinliğe katılan (hasar veren) oyuncuları tutan liste
+    private final Set<Player> participants = new HashSet<>();
     private final Random random = new Random();
 
     public EventManager(LBYangin plugin) {
         this.plugin = plugin;
     }
 
-    // Otomatik/Parametresiz tetikleme: Doğrudan Warp lokasyonunu kullanır
     public void startEvent() {
         startEvent(getWarpLocation());
     }
 
-    // Asıl Etkinlik Başlatma Metodu
     public void startEvent(Location location) {
         if (eventActive) return;
 
-        // Lokasyon geçersizse veya verilmediyse Warp lokasyonunu al
         if (location == null || location.getWorld() == null) {
             location = getWarpLocation();
             if (location == null || location.getWorld() == null) {
@@ -45,6 +49,7 @@ public class EventManager {
 
         eventActive = true;
         activeGhasts.clear();
+        participants.clear(); // Katılımcı listesini sıfırla
 
         int amount = plugin.getConfig().getInt("settings.ghast-amount", 4);
         double health = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
@@ -67,7 +72,6 @@ public class EventManager {
         String startMsg = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ") + "&eYangın etkinliği başladı!";
         Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', startMsg));
 
-        // Discord Webhook Başlangıç Bildirimi
         if (plugin.getConfig().getBoolean("discord.enabled", false)) {
             DiscordWebhook.sendStartNotification(plugin);
         }
@@ -76,20 +80,44 @@ public class EventManager {
     public void stopEvent() {
         if (!eventActive) return;
 
+        // Kalan Ghast'ları temizle
         for (Ghast ghast : new ArrayList<>(activeGhasts)) {
             if (ghast != null && !ghast.isDead()) {
                 ghast.remove();
             }
         }
         activeGhasts.clear();
+
+        // ETKİNLİĞE KATILAN HERKESE ÖDÜL VER
+        giveRewardsToAll();
+
         eventActive = false;
 
         String endMsg = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ") + plugin.getConfig().getString("messages.event-end", "&eYangın etkinliği sona erdi!");
         Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', endMsg));
 
-        // Discord Webhook Bitiş Bildirimi
         if (plugin.getConfig().getBoolean("discord.enabled", false)) {
             DiscordWebhook.sendEndNotification(plugin);
+        }
+    }
+
+    private void giveRewardsToAll() {
+        // Eğer kimse hasar vermediyse o an çevrimiçi olan herkese dağıtmak istersen bu bloğu açabilirsin:
+        // if (participants.isEmpty()) participants.addAll(Bukkit.getOnlinePlayers());
+
+        for (Player player : participants) {
+            if (player != null && player.isOnline()) {
+                player.getInventory().addItem(new ItemStack(Material.EMERALD, 1));
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&a&lÖDÜL! &eYangın etkinliğine katıldığın için 1x Zümrüt kazandın!"));
+            }
+        }
+        participants.clear();
+    }
+
+    // Ghast'a vurulduğunda vurana kaydeder
+    public void addParticipant(Player player) {
+        if (eventActive && player != null) {
+            participants.add(player);
         }
     }
 
@@ -99,6 +127,13 @@ public class EventManager {
 
     public void handleGhastDeath(Ghast ghast) {
         activeGhasts.remove(ghast);
+
+        // Son vuran oyuncuyu da katılımcılara ekle
+        if (ghast.getKiller() != null) {
+            addParticipant(ghast.getKiller());
+        }
+
+        // Tüm Ghast'lar öldüyse etkinliği bitir (Bitişte herkese ödül dağıtılacak)
         if (activeGhasts.isEmpty() && eventActive) {
             stopEvent();
         }

@@ -20,7 +20,7 @@ auto-start:
   minute: 0
 
 rewards:
-  command: "eco give %player% 500"
+  command: "give %player% emerald 1"
 
 discord:
   enabled: true
