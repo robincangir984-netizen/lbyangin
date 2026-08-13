@@ -102,9 +102,6 @@ public class EventManager {
     }
 
     private void giveRewardsToAll() {
-        // Eğer kimse hasar vermediyse o an çevrimiçi olan herkese dağıtmak istersen bu bloğu açabilirsin:
-        // if (participants.isEmpty()) participants.addAll(Bukkit.getOnlinePlayers());
-
         for (Player player : participants) {
             if (player != null && player.isOnline()) {
                 player.getInventory().addItem(new ItemStack(Material.EMERALD, 1));
@@ -141,9 +138,38 @@ public class EventManager {
 
     public void updateGhastNameTag(Ghast ghast) {
         if (ghast == null) return;
-        int currentHealth = (int) Math.max(0, ghast.getHealth());
-        int maxHealth = (int) ghast.getMaxHealth();
-        ghast.setCustomName(ChatColor.translateAlternateColorCodes('&', "&c&lAlev Ghast'ı &7[" + currentHealth + "/" + maxHealth + "]"));
+
+        double currentHealth = Math.max(0, ghast.getHealth());
+        double maxHealth = ghast.getMaxHealth();
+        double healthPercent = currentHealth / maxHealth;
+
+        // Can barı uzunluğu (15 blokluk geniş gösterge)
+        int totalBars = 15;
+        int filledBars = (int) Math.round(healthPercent * totalBars);
+
+        // Orana göre renk geçişi
+        String healthColor;
+        if (healthPercent > 0.5) {
+            healthColor = "&a"; // %50 üzeri Yeşil
+        } else if (healthPercent > 0.25) {
+            healthColor = "&e"; // %25 - %50 arası Sarı
+        } else {
+            healthColor = "&c"; // %25 altı Kırmızı
+        }
+
+        StringBuilder barBuilder = new StringBuilder();
+        for (int i = 0; i < totalBars; i++) {
+            if (i < filledBars) {
+                barBuilder.append("█");
+            } else {
+                barBuilder.append("&7░");
+            }
+        }
+
+        // Tag Yapısı: Alev Ghast'ı | [██████████░░░░░] (80/100)
+        String tag = "&c&lAlev Ghast'ı &8| " + healthColor + barBuilder.toString() + " &f(" + (int) currentHealth + "/" + (int) maxHealth + ")";
+
+        ghast.setCustomName(ChatColor.translateAlternateColorCodes('&', tag));
         ghast.setCustomNameVisible(true);
     }
 
