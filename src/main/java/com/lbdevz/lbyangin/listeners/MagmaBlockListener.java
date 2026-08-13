@@ -1,6 +1,7 @@
 package com.lbdevz.lbyangin.listeners;
 
 import com.lbdevz.lbyangin.LBYangin;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -26,14 +27,13 @@ public class MagmaBlockListener implements Listener {
         if (event.getEntityType() == EntityType.FALLING_BLOCK && event.getTo() == Material.MAGMA_BLOCK) {
             Location landLoc = event.getBlock().getLocation();
 
-            // Magma bloğunun düşeceği yerin orijinal halini kaydet
+            // Düşülen bloğun orijinal halini kaydet
             plugin.getEventManager().trackBlockChange(event.getBlock());
 
             boolean explosionEnabled = plugin.getConfig().getBoolean("settings.explosion-enabled", true);
             float explosionPower = (float) plugin.getConfig().getDouble("settings.explosion-power", 3.0);
 
             if (explosionEnabled) {
-                // Gerçek patlama oluştur
                 landLoc.getWorld().createExplosion(landLoc, explosionPower, true, true);
             }
 
@@ -49,10 +49,17 @@ public class MagmaBlockListener implements Listener {
                     }
                 }
             }
+
+            // Magma bloğunun yere yapışıp kalmaması için hava olarak değiştirilmesi
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                Block b = landLoc.getBlock();
+                if (b.getType() == Material.MAGMA_BLOCK) {
+                    b.setType(Material.AIR);
+                }
+            });
         }
     }
 
-    // Entity patlamalarında kırılacak blokları patlamadan hemen önce kaydet
     @EventHandler
     public void onEntityExplode(EntityExplodeEvent event) {
         if (!plugin.getEventManager().isEventActive()) return;
@@ -62,7 +69,6 @@ public class MagmaBlockListener implements Listener {
         }
     }
 
-    // Blok patlamalarında kırılacak blokları patlamadan hemen önce kaydet
     @EventHandler
     public void onBlockExplode(BlockExplodeEvent event) {
         if (!plugin.getEventManager().isEventActive()) return;

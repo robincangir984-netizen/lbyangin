@@ -1,6 +1,7 @@
 package com.lbdevz.lbyangin;
 
 import com.lbdevz.lbyangin.commands.YanginCommand;
+import com.lbdevz.lbyangin.listeners.GhastDamageListener;
 import com.lbdevz.lbyangin.listeners.GhastDeathListener;
 import com.lbdevz.lbyangin.listeners.MagmaBlockListener;
 import com.lbdevz.lbyangin.managers.EventManager;
@@ -19,6 +20,7 @@ public final class LBYangin extends JavaPlugin {
         getCommand("yangin").setExecutor(new YanginCommand(this));
         getServer().getPluginManager().registerEvents(new MagmaBlockListener(this), this);
         getServer().getPluginManager().registerEvents(new GhastDeathListener(this), this);
+        getServer().getPluginManager().registerEvents(new GhastDamageListener(this), this);
 
         getLogger().info("LB Yangin Eklentisi Aktif!");
     }
