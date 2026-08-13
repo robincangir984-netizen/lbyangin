@@ -8,6 +8,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Ghast;
@@ -17,11 +18,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 public class EventManager {
 
@@ -31,6 +28,9 @@ public class EventManager {
     private final Set<Player> participants = new HashSet<>();
     private final Random random = new Random();
     private BukkitTask shootTask;
+
+    // MagmaBlockListener tarafından gönderilen blokların orijinal hallerini tutar
+    private final Map<Block, BlockData> originalBlocks = new LinkedHashMap<>();
 
     public EventManager(LBYangin plugin) {
         this.plugin = plugin;
@@ -54,6 +54,7 @@ public class EventManager {
         eventActive = true;
         activeGhasts.clear();
         participants.clear();
+        originalBlocks.clear(); // Yeni etkinlik öncesi blok geçmişini sıfırla
 
         int amount = plugin.getConfig().getInt("settings.ghast-amount", 4);
         double health = plugin.getConfig().getDouble("settings.ghast-health", 100.0);
@@ -73,7 +74,7 @@ public class EventManager {
             activeGhasts.add(ghast);
         }
 
-        // ETKİNLİK BAŞLADIĞI AN RASTGELE MAGMA BLOĞU FIRLATMA GÖREVİNİ BAŞLAT (Her 1.5 saniyede bir fırlatır)
+        // Rastgele parlayan Magma Bloğu fırlatma taskını başlat
         startRandomShootingTask();
 
         String startMsg = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ") + "&eYangın etkinliği başladı!";
@@ -99,13 +100,11 @@ public class EventManager {
 
                 for (Ghast ghast : activeGhasts) {
                     if (ghast != null && !ghast.isDead()) {
-                        // Rastgele Açı ve Hız Vektörü (3D Rastgele Yön)
                         double vx = (random.nextDouble() - 0.5) * 1.5;
-                        double vy = random.nextDouble() * 0.8 + 0.2; // Yukarı/İleri kavisli atış
+                        double vy = random.nextDouble() * 0.8 + 0.2;
                         double vz = (random.nextDouble() - 0.5) * 1.5;
                         Vector velocity = new Vector(vx, vy, vz);
 
-                        // Glowing Magma Bloğu Oluştur
                         FallingBlock magmaBlock = ghast.getWorld().spawnFallingBlock(
                                 ghast.getLocation().add(0, -0.5, 0),
                                 Material.MAGMA_BLOCK.createBlockData()
@@ -117,7 +116,7 @@ public class EventManager {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 20L, 30L); // Etkinlik başlar başlamaz 1. sn sonra başlar, her 1.5 saniyede (30 tick) tekrarlar
+        }.runTaskTimer(plugin, 20L, 30L);
     }
 
     public void stopEvent() {
@@ -137,6 +136,9 @@ public class EventManager {
 
         giveRewardsToAll();
 
+        // Magma, patlama ve yangın ile bozulan tüm blokları eski haline getir
+        restoreBlocks();
+
         eventActive = false;
 
         String endMsg = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ") + plugin.getConfig().getString("messages.event-end", "&eYangın etkinliği sona erdi!");
@@ -145,6 +147,26 @@ public class EventManager {
         if (plugin.getConfig().getBoolean("discord.enabled", false)) {
             DiscordWebhook.sendEndNotification(plugin);
         }
+    }
+
+    // MagmaBlockListener tarafından çağrılan takip metodu
+    public void trackBlockChange(Block block) {
+        if (!eventActive || block == null) return;
+        // Blok daha önce kaydedilmediyse ilk (orijinal) halini kaydet
+        if (!originalBlocks.containsKey(block)) {
+            originalBlocks.put(block, block.getBlockData().clone());
+        }
+    }
+
+    private void restoreBlocks() {
+        for (Map.Entry<Block, BlockData> entry : originalBlocks.entrySet()) {
+            Block block = entry.getKey();
+            BlockData originalData = entry.getValue();
+            if (block != null) {
+                block.setBlockData(originalData, false);
+            }
+        }
+        originalBlocks.clear();
     }
 
     private void giveRewardsToAll() {
@@ -211,9 +233,6 @@ public class EventManager {
 
         ghast.setCustomName(ChatColor.translateAlternateColorCodes('&', tag));
         ghast.setCustomNameVisible(true);
-    }
-
-    public void trackBlockChange(Block block) {
     }
 
     public Location getWarpLocation() {
