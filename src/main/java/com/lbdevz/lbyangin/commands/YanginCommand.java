@@ -22,13 +22,8 @@ public class YanginCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("lbyangin.admin")) {
-            sender.sendMessage(ChatColor.RED + "Bu komutu kullanmak için yetkiniz yok.");
-            return true;
-        }
-
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.YELLOW + "Kullanım: /yangin <start|stop|reload|setwarp>");
+            sender.sendMessage(ChatColor.RED + "Kullanım: /yangin <start|stop|setwarp|reload>");
             return true;
         }
 
@@ -36,31 +31,41 @@ public class YanginCommand implements CommandExecutor, TabCompleter {
 
         switch (subCommand) {
             case "start":
-                if (plugin.getEventManager().isEventActive()) {
-                    sender.sendMessage(ChatColor.RED + "Etkinlik zaten aktif!");
+                if (!sender.hasPermission("lbyangin.admin")) {
+                    sender.sendMessage(ChatColor.RED + "Bu komutu kullanmak için yetkiniz yok!");
                     return true;
                 }
-                
-                if (sender instanceof Player player) {
-                    plugin.getEventManager().startEvent(player.getLocation());
-                } else {
-                    plugin.getEventManager().startEvent();
+                if (plugin.getEventManager().isEventActive()) {
+                    sender.sendMessage(ChatColor.RED + "Yangın etkinliği zaten devam ediyor!");
+                    return true;
                 }
-                sender.sendMessage(ChatColor.GREEN + "Yangın etkinliği başlatıldı!");
+
+                // ARTIK OYUNCUNUN KONUMUNU DEĞİL, WARP KONUMUNU KULLANIYOR
+                plugin.getEventManager().startEvent();
+                sender.sendMessage(ChatColor.GREEN + "Yangın etkinliği Warp bölgesinde başlatıldı!");
                 break;
 
             case "stop":
+                if (!sender.hasPermission("lbyangin.admin")) {
+                    sender.sendMessage(ChatColor.RED + "Bu komutu kullanmak için yetkiniz yok!");
+                    return true;
+                }
                 if (!plugin.getEventManager().isEventActive()) {
-                    sender.sendMessage(ChatColor.RED + "Aktif bir etkinlik yok.");
+                    sender.sendMessage(ChatColor.RED + "Aktif bir yangın etkinliği yok!");
                     return true;
                 }
                 plugin.getEventManager().stopEvent();
-                sender.sendMessage(ChatColor.YELLOW + "Yangın etkinliği durduruldu.");
+                sender.sendMessage(ChatColor.GREEN + "Yangın etkinliği durduruldu!");
                 break;
 
             case "setwarp":
-                if (!(sender instanceof Player player)) {
-                    sender.sendMessage(ChatColor.RED + "Bu komutu sadece oyun içerisindeki oyuncular kullanabilir.");
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(ChatColor.RED + "Bu komutu sadece oyuncular kullanabilir!");
+                    return true;
+                }
+                Player player = (Player) sender;
+                if (!player.hasPermission("lbyangin.admin")) {
+                    player.sendMessage(ChatColor.RED + "Bu komutu kullanmak için yetkiniz yok!");
                     return true;
                 }
 
@@ -69,23 +74,24 @@ public class YanginCommand implements CommandExecutor, TabCompleter {
                 plugin.getConfig().set("warp-location.x", loc.getX());
                 plugin.getConfig().set("warp-location.y", loc.getY());
                 plugin.getConfig().set("warp-location.z", loc.getZ());
-                plugin.getConfig().set("warp-location.yaw", (double) loc.getYaw());
-                plugin.getConfig().set("warp-location.pitch", (double) loc.getPitch());
+                plugin.getConfig().set("warp-location.yaw", loc.getYaw());
+                plugin.getConfig().set("warp-location.pitch", loc.getPitch());
                 plugin.saveConfig();
 
-                String prefix = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ");
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&', prefix + "&aEtkinlik doğma konumu durduğunuz yer olarak kaydedildi!"));
+                player.sendMessage(ChatColor.GREEN + "Yangın etkinliği doğma noktası (Warp) bulunduğunuz konum olarak ayarlandı!");
                 break;
 
             case "reload":
+                if (!sender.hasPermission("lbyangin.admin")) {
+                    sender.sendMessage(ChatColor.RED + "Bu komutu kullanmak için yetkiniz yok!");
+                    return true;
+                }
                 plugin.reloadConfig();
-                String pfx = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ");
-                String reloadedMsg = plugin.getConfig().getString("messages.config-reloaded", "Konfigürasyon yüklendi.");
-                sender.sendMessage(ChatColor.translateAlternateColorCodes('&', pfx + reloadedMsg));
+                sender.sendMessage(ChatColor.GREEN + "LB-Yangin konfigürasyonu yeniden yüklendi!");
                 break;
 
             default:
-                sender.sendMessage(ChatColor.YELLOW + "Kullanım: /yangin <start|stop|reload|setwarp>");
+                sender.sendMessage(ChatColor.RED + "Bilinmeyen komut! Kullanım: /yangin <start|stop|setwarp|reload>");
                 break;
         }
 
@@ -96,12 +102,10 @@ public class YanginCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
-            List<String> subCommands = List.of("start", "stop", "reload", "setwarp");
-            for (String sub : subCommands) {
-                if (sub.startsWith(args[0].toLowerCase())) {
-                    completions.add(sub);
-                }
-            }
+            completions.add("start");
+            completions.add("stop");
+            completions.add("setwarp");
+            completions.add("reload");
         }
         return completions;
     }

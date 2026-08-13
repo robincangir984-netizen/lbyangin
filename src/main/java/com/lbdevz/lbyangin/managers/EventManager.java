@@ -9,7 +9,6 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Ghast;
-import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,27 +25,22 @@ public class EventManager {
         this.plugin = plugin;
     }
 
-    // Otomatik başlatan metot (Config'deki warp-location'ı kullanır)
+    // Otomatik/Parametresiz tetikleme: Doğrudan Warp lokasyonunu kullanır
     public void startEvent() {
-        Location warpLoc = getWarpLocation();
-        if (warpLoc == null || warpLoc.getWorld() == null) {
-            plugin.getLogger().severe("Yangın etkinliği başlatılamadı: Warp konumu bulunamadı!");
-            return;
-        }
-        startEvent(warpLoc);
-        
-        if (plugin.getConfig().getBoolean("discord.enabled", false)) {
-            DiscordWebhook.sendStartNotification(plugin);
-        }
+        startEvent(getWarpLocation());
     }
 
-    // Komuttan gelen konuma veya warp'a göre başlatan metot
+    // Asıl Etkinlik Başlatma Metodu
     public void startEvent(Location location) {
         if (eventActive) return;
 
+        // Lokasyon geçersizse veya verilmediyse Warp lokasyonunu al
         if (location == null || location.getWorld() == null) {
             location = getWarpLocation();
-            if (location == null || location.getWorld() == null) return;
+            if (location == null || location.getWorld() == null) {
+                plugin.getLogger().severe("Yangın etkinliği başlatılamadı: Warp konumu veya dünya geçersiz!");
+                return;
+            }
         }
 
         eventActive = true;
@@ -72,6 +66,11 @@ public class EventManager {
 
         String startMsg = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ") + "&eYangın etkinliği başladı!";
         Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', startMsg));
+
+        // Discord Webhook Başlangıç Bildirimi
+        if (plugin.getConfig().getBoolean("discord.enabled", false)) {
+            DiscordWebhook.sendStartNotification(plugin);
+        }
     }
 
     public void stopEvent() {
@@ -88,6 +87,7 @@ public class EventManager {
         String endMsg = plugin.getConfig().getString("messages.prefix", "&a[LB-Yangin] ") + plugin.getConfig().getString("messages.event-end", "&eYangın etkinliği sona erdi!");
         Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes('&', endMsg));
 
+        // Discord Webhook Bitiş Bildirimi
         if (plugin.getConfig().getBoolean("discord.enabled", false)) {
             DiscordWebhook.sendEndNotification(plugin);
         }
@@ -113,7 +113,7 @@ public class EventManager {
     }
 
     public void trackBlockChange(Block block) {
-        // Blok değişim takip mantığı (ihtiyaca göre silinmez)
+        // Blok takip mantığı
     }
 
     public Location getWarpLocation() {
