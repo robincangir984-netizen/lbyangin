@@ -6,6 +6,8 @@ settings:
   shoot-interval-seconds: 3
   explosion-enabled: true
   explosion-power: 3.0
+  bossbar-title: "&c&lYANGIN ETKİNLİĞİ &7- &eGhast Canı"
+  bossbar-color: "RED" # RED, PINK, PURPLE, WHITE, UNKNOWN, GREEN, BLUE
 
 warp-location:
   world: "world"
