@@ -1,54 +1,64 @@
 package com.lbdevz.lbyangin.utils;
 
-import javax.net.ssl.HttpsURLConnection;
+import com.lbdevz.lbyangin.LBYangin;
+import org.bukkit.Bukkit;
+
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public class DiscordWebhook {
 
-    private final String url;
-
-    public DiscordWebhook(String url) {
-        this.url = url;
+    public static void sendStartNotification(LBYangin plugin) {
+        String webhookUrl = plugin.getConfig().getString("discord.webhook-url", "");
+        String title = plugin.getConfig().getString("discord.start-title", "Yangın Etkinliği Başladı!");
+        String description = plugin.getConfig().getString("discord.start-description", "Etkinlik başladı!");
+        sendEmbed(plugin, webhookUrl, title, description, 16711680); // Kırmızı renk
     }
 
-    public void sendEmbed(String title, String description, int color) {
-        if (url == null || url.isEmpty() || url.equalsIgnoreCase("WEBHOOK_URL_BURAYA")) {
+    public static void sendEndNotification(LBYangin plugin) {
+        String webhookUrl = plugin.getConfig().getString("discord.webhook-url", "");
+        String title = plugin.getConfig().getString("discord.end-title", "Yangın Etkinliği Sona Erdi!");
+        String description = plugin.getConfig().getString("discord.end-description", "Etkinlik bitti!");
+        sendEmbed(plugin, webhookUrl, title, description, 65280); // Yeşil renk
+    }
+
+    private static void sendEmbed(LBYangin plugin, String webhookUrl, String title, String description, int color) {
+        if (webhookUrl == null || webhookUrl.isEmpty() || webhookUrl.equals("YOUR_WEBHOOK_URL")) {
             return;
         }
 
-        String jsonPayload = "{"
-                + "\"embeds\": [{"
-                + "\"title\": \"" + escapeJson(title) + "\","
-                + "\"description\": \"" + escapeJson(description) + "\","
-                + "\"color\": " + color
-                + "}]"
-                + "}";
-
-        new Thread(() -> {
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                URL webhookUrl = new URL(url);
-                HttpsURLConnection connection = (HttpsURLConnection) webhookUrl.openConnection();
-                connection.addRequestProperty("Content-Type", "application/json");
-                connection.addRequestProperty("User-Agent", "LBYangin-Plugin");
-                connection.setDoOutput(true);
+                URL url = new URL(webhookUrl);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setDoOutput(true);
 
-                try (OutputStream stream = connection.getOutputStream()) {
-                    stream.write(jsonPayload.getBytes(StandardCharsets.UTF_8));
-                    stream.flush();
+                String jsonPayload = "{"
+                        + "\"embeds\": [{"
+                        + "\"title\": \"" + escapeJson(title) + "\","
+                        + "\"description\": \"" + escapeJson(description) + "\","
+                        + "\"color\": " + color
+                        + "}]"
+                        + "}";
+
+                try (OutputStream os = connection.getOutputStream()) {
+                    byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                    os.write(input, 0, input.length);
                 }
 
-                connection.getInputStream().close();
+                connection.getResponseCode();
                 connection.disconnect();
-            } catch (Exception ignored) {
-                // Sunucu akışının bozulmaması için hatalar yoksayılır
+            } catch (Exception e) {
+                plugin.getLogger().warning("Discord Webhook gönderilirken hata oluştu: " + e.getMessage());
             }
-        }).start();
+        });
     }
 
-    private String escapeJson(String text) {
+    private static String escapeJson(String text) {
         return text.replace("\\", "\\\\")
                    .replace("\"", "\\\"")
                    .replace("\b", "\\b")
