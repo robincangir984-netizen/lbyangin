@@ -13,7 +13,6 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Ghast;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
@@ -152,7 +151,6 @@ public class EventManager {
     // MagmaBlockListener tarafından çağrılan takip metodu
     public void trackBlockChange(Block block) {
         if (!eventActive || block == null) return;
-        // Blok daha önce kaydedilmediyse ilk (orijinal) halini kaydet
         if (!originalBlocks.containsKey(block)) {
             originalBlocks.put(block, block.getBlockData().clone());
         }
@@ -170,10 +168,20 @@ public class EventManager {
     }
 
     private void giveRewardsToAll() {
+        List<String> rewardCommands = plugin.getConfig().getStringList("rewards.commands");
+
         for (Player player : participants) {
             if (player != null && player.isOnline()) {
-                player.getInventory().addItem(new ItemStack(Material.EMERALD, 1));
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&', "&a&lÖDÜL! &eYangın etkinliğine katıldığın için 1x Zümrüt kazandın!"));
+                // Config'te tanımlı her bir komutu çalıştırır
+                if (rewardCommands != null) {
+                    for (String command : rewardCommands) {
+                        String formattedCommand = command.replace("%player%", player.getName());
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), formattedCommand);
+                    }
+                }
+
+                String rewardMsg = plugin.getConfig().getString("messages.reward-received", "&a&lÖDÜL! &eYangın etkinliğine katıldığın için ödülün verildi!");
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', rewardMsg));
             }
         }
         participants.clear();

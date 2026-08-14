@@ -4,6 +4,7 @@ messages:
   prefix: "&a[LB-Yangin] "
   config-reloaded: "&aKonfigürasyon başarıyla yüklendi."
   event-end: "&eYangın etkinliği sona erdi! Ödüller dağıtıldı."
+  reward-received: "&a&lÖDÜL! &eYangın etkinliğine katıldığın için ödülün verildi!"
 
 settings:
   ghast-amount: 4
@@ -20,7 +21,8 @@ auto-start:
   minute: 0
 
 rewards:
-  command: "give %player% emerald 1"
+  commands:
+    - "crates key give %player% kit 1"
 
 discord:
   enabled: true
