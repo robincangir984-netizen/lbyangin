@@ -23,20 +23,22 @@ public final class LBYangin extends JavaPlugin {
 
         sendBanner();
 
-        // Keygen Lisans Doğrulaması (Eklendi)
+        // 1. Asenkron Lisans Doğrulaması (Main thread'i durdurmaz)
         new KeygenValidator(this).validate();
 
+        // 2. Yöneticilerin (Manager) Başlatılması
         this.eventManager = new EventManager(this);
         this.autoSchedulerManager = new AutoSchedulerManager(this);
         this.autoSchedulerManager.startScheduler();
 
+        // 3. Komut Kaydı
         YanginCommand yanginCmd = new YanginCommand(this);
         if (getCommand("yangin") != null) {
             getCommand("yangin").setExecutor(yanginCmd);
             getCommand("yangin").setTabCompleter(yanginCmd);
         }
 
-        // Listener kayıtları
+        // 4. Dinleyici (Listener) Kayıtları
         getServer().getPluginManager().registerEvents(new MagmaBlockListener(this), this);
         getServer().getPluginManager().registerEvents(new GhastDeathListener(this), this);
         getServer().getPluginManager().registerEvents(new GhastDamageListener(this), this);
@@ -62,12 +64,18 @@ public final class LBYangin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // Zamanlayıcıyı durdur
         if (autoSchedulerManager != null) {
             autoSchedulerManager.stopScheduler();
         }
+        
+        // Etkinlik aktifse güvenle bitir
         if (eventManager != null && eventManager.isEventActive()) {
             eventManager.stopEvent();
         }
+
+        // Eklentiye ait çalışan tüm Bukkit Scheduler görevlerini tamamen iptal et
+        getServer().getScheduler().cancelTasks(this);
     }
 
     public EventManager getEventManager() {
