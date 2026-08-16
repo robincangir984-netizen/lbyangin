@@ -54,12 +54,14 @@ public class KeygenValidator {
                             plugin.getLogger().info("[LB-Yangin] Makine kaydi basarili! Eklenti aktiflestirildi.");
                             return;
                         } else {
-                            shutdown("Makine kaydi basarisiz! Lisans baska bir sunucuda kullaniliyor olabilir.");
+                            shutdown("Makine kaydi basarisiz!");
                             return;
                         }
                     }
                 }
 
+                plugin.getLogger().severe("[LB-Yangin] HTTP Kodu: " + response.statusCode());
+                plugin.getLogger().severe("[LB-Yangin] Yanit: " + response.body());
                 shutdown("Gecersiz lisans, suresi dolmus veya baska bir makinede kullaniliyor!");
 
             } catch (Exception e) {
@@ -102,9 +104,15 @@ public class KeygenValidator {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            return response.statusCode() == 201; // 201 Created (Kayıt Başarılı)
+
+            if (response.statusCode() == 201) {
+                return true;
+            } else {
+                plugin.getLogger().severe("[LB-Yangin] Makine Kayit Hatasi (HTTP " + response.statusCode() + "): " + response.body());
+                return false;
+            }
         } catch (Exception e) {
-            plugin.getLogger().severe("[LB-Yangin] Otomatik makine kaydi hatasi: " + e.getMessage());
+            plugin.getLogger().severe("[LB-Yangin] Otomatik makine kaydi istisna hatasi: " + e.getMessage());
             return false;
         }
     }
