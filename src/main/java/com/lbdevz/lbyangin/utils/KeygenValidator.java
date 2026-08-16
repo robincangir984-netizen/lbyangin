@@ -15,6 +15,7 @@ public class KeygenValidator {
 
     private final JavaPlugin plugin;
     private final String ACCOUNT_ID = "d0ec9aa8-d84f-4574-be8d-323a36ec647c";
+    private final String PRODUCT_TOKEN = "prod-79703d9c32a5791b47e51d2e5670136c2a9c54a1d23527dfb42237d59e42496av3";
 
     public KeygenValidator(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -50,7 +51,7 @@ public class KeygenValidator {
 
                         String licenseId = extractLicenseId(response.body());
 
-                        if (licenseId != null && registerMachine(client, licenseKey, licenseId, hwid)) {
+                        if (licenseId != null && registerMachine(client, licenseId, hwid)) {
                             plugin.getLogger().info("[LB-Yangin] Makine kaydi basarili! Eklenti aktiflestirildi.");
                             return;
                         } else {
@@ -86,7 +87,7 @@ public class KeygenValidator {
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
-    private boolean registerMachine(HttpClient client, String licenseKey, String licenseId, String hwid) {
+    private boolean registerMachine(HttpClient client, String licenseId, String hwid) {
         try {
             String endpoint = String.format("https://api.keygen.sh/v1/accounts/%s/machines", ACCOUNT_ID);
             String jsonPayload = String.format(
@@ -96,7 +97,7 @@ public class KeygenValidator {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(endpoint))
-                    .header("Authorization", "Bearer " + licenseKey)
+                    .header("Authorization", "Bearer " + PRODUCT_TOKEN)
                     .header("Content-Type", "application/vnd.api+json")
                     .header("Accept", "application/vnd.api+json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
