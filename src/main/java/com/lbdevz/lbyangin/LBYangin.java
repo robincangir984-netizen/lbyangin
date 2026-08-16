@@ -7,6 +7,7 @@ import com.lbdevz.lbyangin.listeners.GhastShootListener;
 import com.lbdevz.lbyangin.listeners.MagmaBlockListener;
 import com.lbdevz.lbyangin.managers.AutoSchedulerManager;
 import com.lbdevz.lbyangin.managers.EventManager;
+import com.lbdevz.lbyangin.utils.KeygenValidator;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -21,6 +22,9 @@ public final class LBYangin extends JavaPlugin {
         saveDefaultConfig();
 
         sendBanner();
+
+        // Keygen Lisans Doğrulaması (Eklendi)
+        new KeygenValidator(this).validate();
 
         this.eventManager = new EventManager(this);
         this.autoSchedulerManager = new AutoSchedulerManager(this);
