@@ -7,6 +7,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 
 public class KeygenValidator {
@@ -22,14 +24,17 @@ public class KeygenValidator {
         String licenseKey = plugin.getConfig().getString("license-key", "").trim();
 
         if (licenseKey.isEmpty()) {
-            shutdown("config.yml icinde 'license-key' bos bırakilmis!");
+            shutdown("config.yml icinde 'license-key' bos birakilmis!");
             return;
         }
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
+                String hwid = generateHWID();
                 String endpoint = String.format("https://api.keygen.sh/v1/accounts/%s/licenses/actions/validate-key", ACCOUNT_ID);
-                String jsonPayload = String.format("{\"meta\":{\"key\":\"%s\"}}", licenseKey);
+                
+                // Keygen'e hem lisans anahtarini hem de sunucunun donanim kimligini (fingerprint) gonderiyoruz
+                String jsonPayload = String.format("{\"meta\":{\"key\":\"%s\",\"scope\":{\"fingerprint\":\"%s\"}}}", licenseKey, hwid);
 
                 HttpClient client = HttpClient.newBuilder()
                         .connectTimeout(Duration.ofSeconds(5))
@@ -45,13 +50,12 @@ public class KeygenValidator {
 
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-                // Detaylı loglama: Keygen'in ne cevap döndüğünü konsola basar
                 if (response.statusCode() == 200 && response.body().contains("\"valid\":true")) {
-                    plugin.getLogger().info("[LB-Yangin] Lisans basariyla dogrulandi!");
+                    plugin.getLogger().info("[LB-Yangin] Lisans ve Donanim Kimligi (HWID) basariyla dogrulandi!");
                 } else {
                     plugin.getLogger().severe("[LB-Yangin] Keygen HTTP Kodu: " + response.statusCode());
                     plugin.getLogger().severe("[LB-Yangin] Keygen Cevabi: " + response.body());
-                    shutdown("Gecersiz veya suresi dolmus lisans anahtari!");
+                    shutdown("Gecersiz lisans, suresi dolmus veya baska bir makinede kullaniliyor!");
                 }
 
             } catch (Exception e) {
@@ -61,6 +65,31 @@ public class KeygenValidator {
         });
     }
 
+    /**
+     * Sunucunun VDS/Makine ozelliklerinden benzersiz bir HWID (Fingerprint) uretir.
+     */
+    private String generateHWID() {
+        try {
+            String raw = System.getenv("COMPUTERNAME") + 
+                         System.getProperty("user.name") + 
+                         System.getProperty("os.name") + 
+                         Runtime.getRuntime().availableProcessors();
+                         
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(raw.getBytes(StandardCharsets.UTF_8));
+            
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString().substring(0, 32); // 32 karakterlik HWID
+        } catch (Exception e) {
+            return "default-server-hwid";
+        }
+    }
+
     private void shutdown(String reason) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             plugin.getLogger().severe("========================================");
@@ -68,7 +97,6 @@ public class KeygenValidator {
             plugin.getLogger().severe("[LB-Yangin] Eklenti devredisi birakiliyor...");
             plugin.getLogger().severe("========================================");
             
-            // Tüm sunucuyu (System.exit) kapatmak yerine SADECE bu eklentiyi kapatır:
             Bukkit.getPluginManager().disablePlugin(plugin);
         });
     }
